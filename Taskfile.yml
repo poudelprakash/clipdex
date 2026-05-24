@@ -13,7 +13,9 @@ tasks:
 
   db:migrate:
     desc: Apply migrations to the local DB.
-    cmd: psql -d clipdex -f migrations/001_init.sql
+    cmds:
+      - psql -d clipdex -f migrations/001_init.sql
+      - psql -d clipdex -f migrations/002_enrich.sql
 
   dev:
     desc: Run API (:8000) and web (:5173) together.
