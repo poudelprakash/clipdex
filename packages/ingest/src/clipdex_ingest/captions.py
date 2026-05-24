@@ -9,6 +9,7 @@ just the auto-generated WebVTT file.
 """
 
 import asyncio
+import logging
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -16,6 +17,12 @@ import webvtt
 
 from clipdex_ingest.settings import settings
 from clipdex_schema import TranscriptSegment
+
+log = logging.getLogger("clipdex.ingest.captions")
+
+
+class RateLimited(Exception):
+    """yt-dlp reported HTTP 429 — back off and retry later."""
 
 
 def _cache_dir() -> Path:
@@ -44,8 +51,13 @@ def _fetch_vtt_sync(video_id: str) -> Path | None:
     }
     if settings.ytdlp_cookies_from_browser:
         ydl_opts["cookiesfrombrowser"] = (settings.ytdlp_cookies_from_browser,)
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([f"https://www.youtube.com/watch?v={video_id}"])
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([f"https://www.youtube.com/watch?v={video_id}"])
+    except yt_dlp.utils.DownloadError as e:
+        if "HTTP Error 429" in str(e):
+            raise RateLimited(str(e)) from e
+        raise
 
     for lang in ("en", "en-US", "en-GB"):
         candidate = out_dir / f"{video_id}.{lang}.vtt"
@@ -64,7 +76,24 @@ async def fetch_captions(video_id: str) -> list[TranscriptSegment] | None:
             cached = candidate
             break
     if cached is None:
-        cached = await asyncio.to_thread(_fetch_vtt_sync, video_id)
+        backoffs = [
+            float(x) for x in settings.ingest_429_backoff_schedule.split(",") if x.strip()
+        ]
+        attempt = 0
+        while True:
+            try:
+                cached = await asyncio.to_thread(_fetch_vtt_sync, video_id)
+                break
+            except RateLimited as e:
+                if attempt >= len(backoffs):
+                    raise
+                delay = backoffs[attempt]
+                log.warning(
+                    "captions: %s rate-limited (attempt %d/%d), sleeping %.0fs: %s",
+                    video_id, attempt + 1, len(backoffs), delay, e,
+                )
+                await asyncio.sleep(delay)
+                attempt += 1
         if cached is None:
             return None
 

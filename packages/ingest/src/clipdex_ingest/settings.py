@@ -25,5 +25,14 @@ class Settings(BaseSettings):
     # browser via yt-dlp. Empty disables.
     ytdlp_cookies_from_browser: str = Field(default="")
 
+    # Pacing & rate-limit handling. YouTube 429s any IP that pulls captions
+    # too quickly; spacing requests out is the only reliable mitigation.
+    ingest_per_video_delay_seconds: float = Field(default=3.0)
+    # Comma-separated seconds to sleep between successive 429 retries; empty disables retry.
+    ingest_429_backoff_schedule: str = Field(default="30,60,120")
+    # When true, ignore latest_published cutoff and walk the full uploads playlist,
+    # relying on per-video already_done dedup. Use for backfills and to retry failed rows.
+    ingest_backfill_mode: bool = Field(default=False)
+
 
 settings = Settings()

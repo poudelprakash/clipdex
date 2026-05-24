@@ -38,7 +38,11 @@ async def ingest_once(enable_fallback: bool | None = None) -> dict[str, int]:
     stats = {"ok": 0, "skipped": 0, "failed": 0}
 
     async with AsyncSession(engine) as session:
-        since = await latest_published(session)
+        if settings.ingest_backfill_mode:
+            since = None
+            log.info("ingest: backfill mode — walking full uploads playlist")
+        else:
+            since = await latest_published(session)
         uploads = await list_uploads(playlist_id, since=since)
         if settings.max_videos_per_run > 0:
             uploads = uploads[: settings.max_videos_per_run]
@@ -80,6 +84,8 @@ async def ingest_once(enable_fallback: bool | None = None) -> dict[str, int]:
                 await session.rollback()
                 await mark_failed(session, vid, str(e))
                 stats["failed"] += 1
+            if settings.ingest_per_video_delay_seconds > 0:
+                await asyncio.sleep(settings.ingest_per_video_delay_seconds)
 
     await engine.dispose()
     log.info("ingest: done. %d ok, %d skipped, %d failed", stats["ok"], stats["skipped"], stats["failed"])
