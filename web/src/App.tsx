@@ -1,10 +1,14 @@
+import { Route, Routes } from "react-router-dom";
+import { GuestPage } from "./pages/GuestPage";
+import { Home } from "./pages/Home";
+import { Search } from "./pages/Search";
+
 export function App() {
   return (
-    <main className="mx-auto max-w-3xl p-8">
-      <h1 className="text-3xl font-semibold">clipdex</h1>
-      <p className="mt-2 text-zinc-600">
-        Local AI podcast index. Pages and search arrive in post 7.
-      </p>
-    </main>
+    <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/guests/:guestId" element={<GuestPage />} />
+      <Route path="/search" element={<Search />} />
+    </Routes>
   );
 }

@@ -1,0 +1,354 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ClipdexApi",
+  "type": "object",
+  "properties": {
+    "GuestSummary": {
+      "$ref": "#/definitions/GuestSummary"
+    },
+    "Appearance": {
+      "$ref": "#/definitions/Appearance"
+    },
+    "TopicMention": {
+      "$ref": "#/definitions/TopicMention"
+    },
+    "GuestQuote": {
+      "$ref": "#/definitions/GuestQuote"
+    },
+    "GuestDetail": {
+      "$ref": "#/definitions/GuestDetail"
+    },
+    "QuoteRef": {
+      "$ref": "#/definitions/QuoteRef"
+    },
+    "Question": {
+      "$ref": "#/definitions/Question"
+    },
+    "QuestionSet": {
+      "$ref": "#/definitions/QuestionSet"
+    },
+    "ClipHit": {
+      "$ref": "#/definitions/ClipHit"
+    },
+    "SearchResponse": {
+      "$ref": "#/definitions/SearchResponse"
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "GuestSummary": {
+      "description": "Card on the home page.",
+      "properties": {
+        "id": {
+          "description": "canonical guest UUID",
+          "title": "Id",
+          "type": "string"
+        },
+        "canonical_name": {
+          "title": "Canonical Name",
+          "type": "string"
+        },
+        "appearance_count": {
+          "minimum": 0,
+          "title": "Appearance Count",
+          "type": "integer"
+        },
+        "popularity": {
+          "default": 0.0,
+          "description": "appearance + recency score (post 8)",
+          "title": "Popularity",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "canonical_name",
+        "appearance_count"
+      ],
+      "title": "GuestSummary",
+      "type": "object"
+    },
+    "Appearance": {
+      "properties": {
+        "video_id": {
+          "title": "Video Id",
+          "type": "string"
+        },
+        "alias_name": {
+          "title": "Alias Name",
+          "type": "string"
+        },
+        "youtube_url": {
+          "title": "Youtube Url",
+          "type": "string"
+        },
+        "first_seen_at_ms": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "anchor start_ms inside the video, if known",
+          "title": "First Seen At Ms"
+        }
+      },
+      "required": [
+        "video_id",
+        "alias_name",
+        "youtube_url"
+      ],
+      "title": "Appearance",
+      "type": "object"
+    },
+    "TopicMention": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "count": {
+          "minimum": 1,
+          "title": "Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "count"
+      ],
+      "title": "TopicMention",
+      "type": "object"
+    },
+    "GuestQuote": {
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "video_id": {
+          "title": "Video Id",
+          "type": "string"
+        },
+        "youtube_url": {
+          "title": "Youtube Url",
+          "type": "string"
+        },
+        "quotability_score": {
+          "title": "Quotability Score",
+          "type": "number"
+        }
+      },
+      "required": [
+        "text",
+        "video_id",
+        "youtube_url",
+        "quotability_score"
+      ],
+      "title": "GuestQuote",
+      "type": "object"
+    },
+    "GuestDetail": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "canonical_name": {
+          "title": "Canonical Name",
+          "type": "string"
+        },
+        "appearances": {
+          "items": {
+            "$ref": "#/definitions/Appearance"
+          },
+          "title": "Appearances",
+          "type": "array"
+        },
+        "topics": {
+          "items": {
+            "$ref": "#/definitions/TopicMention"
+          },
+          "title": "Topics",
+          "type": "array"
+        },
+        "quotes": {
+          "items": {
+            "$ref": "#/definitions/GuestQuote"
+          },
+          "title": "Quotes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "canonical_name",
+        "appearances",
+        "topics",
+        "quotes"
+      ],
+      "title": "GuestDetail",
+      "type": "object"
+    },
+    "QuoteRef": {
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "video_id": {
+          "title": "Video Id",
+          "type": "string"
+        },
+        "youtube_url": {
+          "title": "Youtube Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "video_id",
+        "youtube_url"
+      ],
+      "title": "QuoteRef",
+      "type": "object"
+    },
+    "Question": {
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "rationale": {
+          "title": "Rationale",
+          "type": "string"
+        },
+        "grounded_in": {
+          "items": {
+            "$ref": "#/definitions/QuoteRef"
+          },
+          "title": "Grounded In",
+          "type": "array"
+        }
+      },
+      "required": [
+        "text",
+        "rationale",
+        "grounded_in"
+      ],
+      "title": "Question",
+      "type": "object"
+    },
+    "QuestionSet": {
+      "properties": {
+        "guest_id": {
+          "title": "Guest Id",
+          "type": "string"
+        },
+        "generated_at": {
+          "format": "date-time",
+          "title": "Generated At",
+          "type": "string"
+        },
+        "questions": {
+          "items": {
+            "$ref": "#/definitions/Question"
+          },
+          "title": "Questions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "guest_id",
+        "generated_at",
+        "questions"
+      ],
+      "title": "QuestionSet",
+      "type": "object"
+    },
+    "ClipHit": {
+      "properties": {
+        "video_id": {
+          "title": "Video Id",
+          "type": "string"
+        },
+        "seq": {
+          "title": "Seq",
+          "type": "integer"
+        },
+        "start_ms": {
+          "title": "Start Ms",
+          "type": "integer"
+        },
+        "end_ms": {
+          "title": "End Ms",
+          "type": "integer"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "youtube_url": {
+          "title": "Youtube Url",
+          "type": "string"
+        },
+        "fts_rank": {
+          "title": "Fts Rank",
+          "type": "number"
+        },
+        "rerank_rationale": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rerank Rationale"
+        }
+      },
+      "required": [
+        "video_id",
+        "seq",
+        "start_ms",
+        "end_ms",
+        "text",
+        "youtube_url",
+        "fts_rank"
+      ],
+      "title": "ClipHit",
+      "type": "object"
+    },
+    "SearchResponse": {
+      "properties": {
+        "query": {
+          "title": "Query",
+          "type": "string"
+        },
+        "cached": {
+          "title": "Cached",
+          "type": "boolean"
+        },
+        "results": {
+          "items": {
+            "$ref": "#/definitions/ClipHit"
+          },
+          "title": "Results",
+          "type": "array"
+        }
+      },
+      "required": [
+        "query",
+        "cached",
+        "results"
+      ],
+      "title": "SearchResponse",
+      "type": "object"
+    }
+  }
+}

@@ -21,3 +21,5 @@ backups/
 # local caches
 .cache/
 .claude/
+web/tsconfig.tsbuildinfo
+web/dist/
