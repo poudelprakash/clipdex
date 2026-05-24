@@ -1,0 +1,11 @@
+[Unit]
+Description=clipdex nightly ingest + enrich + resolve + search-refresh
+Wants=postgresql.service
+After=postgresql.service network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/workspaces/clipdex
+ExecStart=/bin/bash -lc 'task ingest && task enrich && task resolve && task search:refresh'
+StandardOutput=append:%h/.local/state/clipdex/nightly.log
+StandardError=append:%h/.local/state/clipdex/nightly.log

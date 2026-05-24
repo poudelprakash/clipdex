@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily clipdex ingest + enrich at 03:00
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+Unit=clipdex-nightly.service
+
+[Install]
+WantedBy=timers.target

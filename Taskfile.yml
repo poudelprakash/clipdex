@@ -56,8 +56,10 @@ tasks:
     cmd: uv run --package clipdex-codegen python -m clipdex_codegen
 
   backup:
-    desc: pg_dump the local DB.
-    cmd: pg_dump clipdex > backups/clipdex-$(date +%Y%m%d-%H%M%S).sql
+    desc: pg_dump the local DB into backups/.
+    cmds:
+      - mkdir -p backups
+      - pg_dump clipdex > backups/clipdex-$(date +%Y%m%d-%H%M%S).sql
 
   check:
     desc: Lint + typecheck.

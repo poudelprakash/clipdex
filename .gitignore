@@ -14,7 +14,6 @@ web/.vite/
 
 # data
 data/
-backups/
 *.sqlite
 *.db
 
@@ -23,3 +22,4 @@ backups/
 .claude/
 web/tsconfig.tsbuildinfo
 web/dist/
+backups/*.sql

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  clipdex nightly ingest + enrich + resolve + search-refresh.
+
+  Install:
+    cp ops/launchd/com.poudelprakash.clipdex.ingest-and-enrich.plist \
+       ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.poudelprakash.clipdex.ingest-and-enrich.plist
+
+  Tail the log:
+    tail -f ~/Library/Logs/clipdex/nightly.log
+
+  Replace WORKING_DIRECTORY below with your local clone path before installing.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.poudelprakash.clipdex.ingest-and-enrich</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>cd "$WORKING_DIRECTORY" &amp;&amp; task ingest &amp;&amp; task enrich &amp;&amp; task resolve &amp;&amp; task search:refresh</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>WORKING_DIRECTORY</key>
+    <string>/Users/CHANGE_ME/workspaces/clipdex</string>
+  </dict>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/CHANGE_ME/workspaces/clipdex</string>
+
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>3</integer>
+    <key>Minute</key><integer>0</integer>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <false/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/CHANGE_ME/Library/Logs/clipdex/nightly.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/CHANGE_ME/Library/Logs/clipdex/nightly.log</string>
+</dict>
+</plist>

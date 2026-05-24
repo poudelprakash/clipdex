@@ -42,16 +42,58 @@ async def get_guest(guest_id: str) -> GuestDetail:
 
 
 async def _list_guests(s: AsyncSession, *, limit: int) -> list[GuestSummary]:
+    """`popularity = 0.7 * normalized_appearance + 0.3 * recency_score`.
+
+    `recency_score` is 1.0 for a guest seen in the most recent video and decays
+    to 0 for guests whose latest appearance is the oldest in the corpus. Both
+    sides are normalized so the score sits in [0, 1] regardless of channel
+    size. Memoize this for an hour in front of the route if the query gets hot
+    (it doesn't yet, at our scale).
+    """
     r = await s.execute(
         text(
             """
-            SELECT g.id::text AS id,
-                   g.canonical_name,
-                   COUNT(DISTINCT ga.source_video_id) AS appearance_count
-            FROM guests g
-            LEFT JOIN guest_aliases ga ON ga.guest_id = g.id
-            GROUP BY g.id, g.canonical_name
-            ORDER BY appearance_count DESC, g.canonical_name ASC
+            WITH per_guest AS (
+                SELECT g.id, g.canonical_name,
+                       COUNT(DISTINCT ga.source_video_id) AS apps,
+                       MAX(pv.published_at) AS latest
+                FROM guests g
+                LEFT JOIN guest_aliases ga ON ga.guest_id = g.id
+                LEFT JOIN processed_videos pv ON pv.video_id = ga.source_video_id
+                GROUP BY g.id, g.canonical_name
+            ),
+            extents AS (
+                SELECT MAX(apps) AS max_apps,
+                       MIN(latest) AS oldest, MAX(latest) AS newest
+                FROM per_guest
+            )
+            SELECT pg.id::text AS id, pg.canonical_name, pg.apps,
+                   CASE
+                     WHEN extents.max_apps IS NULL OR extents.max_apps = 0 THEN 0
+                     ELSE pg.apps::float / extents.max_apps
+                   END AS norm_apps,
+                   CASE
+                     WHEN extents.newest IS NULL OR extents.newest = extents.oldest THEN 0
+                     WHEN pg.latest IS NULL THEN 0
+                     ELSE EXTRACT(EPOCH FROM (pg.latest - extents.oldest))
+                          / GREATEST(1, EXTRACT(EPOCH FROM (extents.newest - extents.oldest)))
+                   END AS recency
+            FROM per_guest pg
+            CROSS JOIN extents
+            ORDER BY (0.7 * (
+                       CASE
+                         WHEN extents.max_apps IS NULL OR extents.max_apps = 0 THEN 0
+                         ELSE pg.apps::float / extents.max_apps
+                       END
+                     ) + 0.3 * (
+                       CASE
+                         WHEN extents.newest IS NULL OR extents.newest = extents.oldest THEN 0
+                         WHEN pg.latest IS NULL THEN 0
+                         ELSE EXTRACT(EPOCH FROM (pg.latest - extents.oldest))
+                              / GREATEST(1, EXTRACT(EPOCH FROM (extents.newest - extents.oldest)))
+                       END
+                     )) DESC,
+                     pg.canonical_name ASC
             LIMIT :n
             """
         ),
@@ -62,8 +104,10 @@ async def _list_guests(s: AsyncSession, *, limit: int) -> list[GuestSummary]:
         GuestSummary(
             id=row.id,
             canonical_name=row.canonical_name,
-            appearance_count=int(row.appearance_count),
-            popularity=float(row.appearance_count),
+            appearance_count=int(row.apps),
+            popularity=float(
+                0.7 * float(row.norm_apps) + 0.3 * float(row.recency)
+            ),
         )
         for row in rows
     ]
