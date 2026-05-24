@@ -9,6 +9,11 @@ tasks:
       - uv sync
       - cd web && pnpm install
       - createdb clipdex 2>/dev/null || true
+      - task: db:migrate
+
+  db:migrate:
+    desc: Apply migrations to the local DB.
+    cmd: psql -d clipdex -f migrations/001_init.sql
 
   dev:
     desc: Run API (:8000) and web (:5173) together.

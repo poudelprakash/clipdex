@@ -1,1 +1,5 @@
-"""Shared Pydantic models. Filled out across posts 2–4."""
+"""Shared Pydantic models across clipdex packages."""
+
+from clipdex_schema.transcripts import CaptionSource, TranscriptSegment
+
+__all__ = ["CaptionSource", "TranscriptSegment"]

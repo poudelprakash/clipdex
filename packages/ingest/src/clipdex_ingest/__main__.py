@@ -1,6 +1,4 @@
-def main() -> None:
-    print("clipdex-ingest: not yet implemented (post 2)")
-
+from clipdex_ingest.run import main
 
 if __name__ == "__main__":
     main()

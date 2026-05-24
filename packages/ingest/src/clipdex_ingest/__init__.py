@@ -1,1 +1,1 @@
-"""YouTube ingest worker. Implemented in post 2."""
+"""YouTube ingest worker (series3-post2)."""

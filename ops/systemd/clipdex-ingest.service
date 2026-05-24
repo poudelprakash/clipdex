@@ -1,0 +1,9 @@
+[Unit]
+Description=clipdex YouTube ingest worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/code/clipdex
+ExecStart=/usr/bin/env task ingest
