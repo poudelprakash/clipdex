@@ -1,0 +1,34 @@
+[project]
+name = "clipdex"
+version = "0.1.0"
+description = "Local-first AI podcast index: ingest transcripts, extract guests/topics, clip-search, generate questions."
+requires-python = ">=3.12"
+readme = "README.md"
+license = { text = "MIT" }
+dependencies = [
+    "clipdex-schema",
+    "llm-client",
+    "clipdex-ingest",
+    "clipdex-enrich",
+    "clipdex-api",
+    "clipdex-codegen",
+]
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.uv.sources]
+clipdex-schema = { workspace = true }
+llm-client = { workspace = true }
+clipdex-ingest = { workspace = true }
+clipdex-enrich = { workspace = true }
+clipdex-api = { workspace = true }
+clipdex-codegen = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "ruff>=0.8",
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+    "mypy>=1.13",
+]

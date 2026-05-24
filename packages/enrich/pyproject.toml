@@ -1,0 +1,18 @@
+[project]
+name = "clipdex-enrich"
+version = "0.1.0"
+description = "Structured extraction (guests/topics/quotes) and entity resolution."
+requires-python = ">=3.12"
+dependencies = [
+    "clipdex-schema",
+    "llm-client",
+    "psycopg[binary]>=3.2",
+    "rapidfuzz>=3.10",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/clipdex_enrich"]

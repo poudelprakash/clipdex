@@ -1,0 +1,52 @@
+version: '3'
+
+dotenv: ['.env']
+
+tasks:
+  setup:
+    desc: Install Python + JS deps, create local DB if missing.
+    cmds:
+      - uv sync
+      - cd web && pnpm install
+      - createdb clipdex 2>/dev/null || true
+
+  dev:
+    desc: Run API (:8000) and web (:5173) together.
+    deps: [dev:api, dev:web]
+
+  dev:api:
+    desc: FastAPI with reload.
+    cmd: uv run --package clipdex-api uvicorn clipdex_api.main:app --reload --host {{.API_HOST}} --port {{.API_PORT}}
+
+  dev:web:
+    desc: Vite dev server.
+    cmd: cd web && pnpm dev
+
+  ingest:
+    desc: Pull new episodes from the reference channel.
+    cmd: uv run --package clipdex-ingest python -m clipdex_ingest
+
+  enrich:
+    desc: Run structured extraction over un-enriched transcripts.
+    cmd: uv run --package clipdex-enrich python -m clipdex_enrich
+
+  guests:review:
+    desc: Tiny CLI to approve low-confidence guest merges (post 4).
+    cmd: uv run --package clipdex-enrich python -m clipdex_enrich.review
+
+  codegen:
+    desc: Emit TS types from shared-schema for the web app (post 7).
+    cmd: uv run --package clipdex-codegen python -m clipdex_codegen
+
+  backup:
+    desc: pg_dump the local DB.
+    cmd: pg_dump clipdex > backups/clipdex-$(date +%Y%m%d-%H%M%S).sql
+
+  check:
+    desc: Lint + typecheck.
+    cmds:
+      - uv run ruff check .
+      - uv run mypy packages
+
+  test:
+    cmd: uv run pytest
