@@ -17,3 +17,7 @@ data/
 backups/
 *.sqlite
 *.db
+
+# local caches
+.cache/
+.claude/

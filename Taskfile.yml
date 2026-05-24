@@ -16,6 +16,11 @@ tasks:
     cmds:
       - psql -d clipdex -f migrations/001_init.sql
       - psql -d clipdex -f migrations/002_enrich.sql
+      - psql -d clipdex -f migrations/003_resolution.sql
+
+  resolve:
+    desc: Resolve guest entities (exact -> fuzzy -> LLM) over guests_raw.
+    cmd: uv run --package clipdex-enrich python -m clipdex_enrich.resolve
 
   dev:
     desc: Run API (:8000) and web (:5173) together.
