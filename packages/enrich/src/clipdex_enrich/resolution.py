@@ -367,40 +367,29 @@ async def _ask_llm(
     name_b: str,
     context_b: str,
 ) -> tuple[str, str]:
-    """Ask Claude whether two guest mentions refer to the same person.
+    """Ask the active LLM whether two guest mentions are the same person.
 
     Returns ``(decision, rationale)``. Decision is one of ``yes`` / ``no`` /
     ``uncertain``. Anything we can't parse falls back to ``uncertain``.
     """
-    # Imported lazily so the resolution module is importable without an API
-    # key (e.g. for tests that only exercise the deterministic stages).
     import json
 
-    from clipdex_enrich.router import get_client
-    from clipdex_enrich.settings import settings
+    from llm_client import complete
 
-    client = get_client()
     user = (
         f"Candidate A: {name_a}\n"
         f"Context A: {context_a}\n\n"
         f"Candidate B: {name_b}\n"
         f"Context B: {context_b}\n"
     )
-    response = await client.messages.create(
-        model=settings.model_cheap,
-        max_tokens=200,
-        system=[
-            {
-                "type": "text",
-                "text": LLM_SYSTEM,
-                "cache_control": {"type": "ephemeral"},
-            }
-        ],
+    text_raw = await complete(
+        system=LLM_SYSTEM,
         messages=[{"role": "user", "content": user}],
+        tier="cheap",
+        cache_system=True,
+        max_tokens=200,
     )
-    text_out = "".join(
-        block.text for block in response.content if getattr(block, "type", "") == "text"
-    )
+    text_out = text_raw if isinstance(text_raw, str) else str(text_raw)
     start = text_out.find("{")
     end = text_out.rfind("}")
     if start == -1 or end == -1 or end < start:

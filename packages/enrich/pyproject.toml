@@ -6,7 +6,6 @@ requires-python = ">=3.12"
 dependencies = [
     "clipdex-schema",
     "llm-client",
-    "anthropic>=0.40",
     "psycopg[binary]>=3.2",
     "rapidfuzz>=3.10",
     "sqlalchemy[asyncio]>=2.0",
