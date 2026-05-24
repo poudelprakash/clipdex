@@ -17,6 +17,11 @@ tasks:
       - psql -d clipdex -f migrations/001_init.sql
       - psql -d clipdex -f migrations/002_enrich.sql
       - psql -d clipdex -f migrations/003_resolution.sql
+      - psql -d clipdex -f migrations/004_search.sql
+
+  search:refresh:
+    desc: REFRESH MATERIALIZED VIEW transcript_segments_search.
+    cmd: uv run --package clipdex-api python -m clipdex_api.refresh_cli
 
   resolve:
     desc: Resolve guest entities (exact -> fuzzy -> LLM) over guests_raw.
