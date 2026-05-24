@@ -13,35 +13,32 @@ def _cache_dir() -> Path:
     return Path(settings.cache_dir) / "captions"
 
 
-async def _list_tracks(video_id: str) -> list[dict[str, str]]:
+async def pick_track(video_id: str) -> str | None:
+    """Return the best English caption track id, or None if no usable track exists.
+
+    Prefers human-authored English over ASR, falls back to any English track.
+    """
     async with httpx.AsyncClient(timeout=15) as http:
         r = await http.get(
             f"{YT}/captions",
             params={"part": "snippet", "videoId": video_id, "key": settings.youtube_api_key},
         )
         _raise_for_quota(r)
-        return [
-            {
-                "id": item["id"],
-                "language": item["snippet"].get("language", ""),
-                "track_kind": item["snippet"].get("trackKind", ""),
-            }
-            for item in r.json().get("items", [])
-        ]
+        items = r.json().get("items", [])
 
-
-def _pick_english(tracks: list[dict[str, str]]) -> str | None:
-    """Prefer human-authored English, then ASR English, then any English."""
-    english = [t for t in tracks if t["language"].lower().startswith("en")]
+    english = [
+        item for item in items if item["snippet"].get("language", "").lower().startswith("en")
+    ]
     if not english:
         return None
-    for t in english:
-        if t["track_kind"] != "ASR":
-            return t["id"]
+    for item in english:
+        if item["snippet"].get("trackKind") != "ASR":
+            return item["id"]
     return english[0]["id"]
 
 
-async def _download_track(track_id: str) -> str:
+async def download_track(track_id: str) -> str:
+    """Download a caption track as WebVTT text."""
     async with httpx.AsyncClient(timeout=30) as http:
         r = await http.get(
             f"{YT}/captions/{track_id}",
@@ -58,11 +55,10 @@ async def fetch_captions(video_id: str) -> list[TranscriptSegment] | None:
     """
     cached = _cache_dir() / f"{video_id}.vtt"
     if not cached.exists():
-        tracks = await _list_tracks(video_id)
-        track_id = _pick_english(tracks)
+        track_id = await pick_track(video_id)
         if track_id is None:
             return None
-        vtt = await _download_track(track_id)
+        vtt = await download_track(track_id)
         cached.parent.mkdir(parents=True, exist_ok=True)
         cached.write_text(vtt, encoding="utf-8")
     return list(_parse_vtt(cached, video_id))
