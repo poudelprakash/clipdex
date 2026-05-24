@@ -1,76 +1,107 @@
+"""Caption extraction via yt-dlp's subs-only mode.
+
+The YouTube Data API's `captions.download` endpoint requires OAuth and is, in
+practice, limited to videos you own. Third-party libraries that scrape the
+watch page (e.g. youtube-transcript-api) are easily IP-blocked. yt-dlp uses
+the YouTube player API directly and is the most robust path that doesn't
+require downloading any media — `--write-auto-subs --skip-download` fetches
+just the auto-generated WebVTT file.
+"""
+
+import asyncio
 from collections.abc import Iterator
 from pathlib import Path
 
-import httpx
 import webvtt
 
-from clipdex_schema import TranscriptSegment
-from clipdex_ingest.client import YT, _raise_for_quota
 from clipdex_ingest.settings import settings
+from clipdex_schema import TranscriptSegment
 
 
 def _cache_dir() -> Path:
     return Path(settings.cache_dir) / "captions"
 
 
-async def pick_track(video_id: str) -> str | None:
-    """Return the best English caption track id, or None if no usable track exists.
+def _fetch_vtt_sync(video_id: str) -> Path | None:
+    """Download the auto-generated English subs as WebVTT. Returns the cached path or None."""
+    import yt_dlp
 
-    Prefers human-authored English over ASR, falls back to any English track.
-    """
-    async with httpx.AsyncClient(timeout=15) as http:
-        r = await http.get(
-            f"{YT}/captions",
-            params={"part": "snippet", "videoId": video_id, "key": settings.youtube_api_key},
-        )
-        _raise_for_quota(r)
-        items = r.json().get("items", [])
+    out_dir = _cache_dir()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    template = str(out_dir / f"{video_id}.%(ext)s")
 
-    english = [
-        item for item in items if item["snippet"].get("language", "").lower().startswith("en")
-    ]
-    if not english:
-        return None
-    for item in english:
-        if item["snippet"].get("trackKind") != "ASR":
-            return item["id"]
-    return english[0]["id"]
+    ydl_opts: dict = {
+        "skip_download": True,
+        "writesubtitles": True,
+        "writeautomaticsub": True,
+        "subtitleslangs": ["en", "en-US", "en-GB"],
+        "subtitlesformat": "vtt",
+        "outtmpl": template,
+        "quiet": True,
+        "no_warnings": True,
+        # Subs-only: don't fail when media formats can't be resolved (n-challenge etc).
+        "ignore_no_formats_error": True,
+    }
+    if settings.ytdlp_cookies_from_browser:
+        ydl_opts["cookiesfrombrowser"] = (settings.ytdlp_cookies_from_browser,)
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([f"https://www.youtube.com/watch?v={video_id}"])
 
-
-async def download_track(track_id: str) -> str:
-    """Download a caption track as WebVTT text."""
-    async with httpx.AsyncClient(timeout=30) as http:
-        r = await http.get(
-            f"{YT}/captions/{track_id}",
-            params={"tfmt": "vtt", "key": settings.youtube_api_key},
-        )
-        _raise_for_quota(r)
-        return r.text
+    for lang in ("en", "en-US", "en-GB"):
+        candidate = out_dir / f"{video_id}.{lang}.vtt"
+        if candidate.exists():
+            return candidate
+    return None
 
 
 async def fetch_captions(video_id: str) -> list[TranscriptSegment] | None:
-    """Return parsed segments, or None if no usable caption track exists.
-
-    WebVTT is cached on disk so re-runs don't burn 200 quota units per video.
-    """
-    cached = _cache_dir() / f"{video_id}.vtt"
-    if not cached.exists():
-        track_id = await pick_track(video_id)
-        if track_id is None:
+    """Return parsed segments, or None if no caption track is available."""
+    out_dir = _cache_dir()
+    cached: Path | None = None
+    for lang in ("en", "en-US", "en-GB"):
+        candidate = out_dir / f"{video_id}.{lang}.vtt"
+        if candidate.exists():
+            cached = candidate
+            break
+    if cached is None:
+        cached = await asyncio.to_thread(_fetch_vtt_sync, video_id)
+        if cached is None:
             return None
-        vtt = await download_track(track_id)
-        cached.parent.mkdir(parents=True, exist_ok=True)
-        cached.write_text(vtt, encoding="utf-8")
-    return list(_parse_vtt(cached, video_id))
+
+    segments = list(_parse_vtt(cached, video_id))
+    return segments or None
 
 
 def _parse_vtt(path: Path, video_id: str) -> Iterator[TranscriptSegment]:
-    for i, cue in enumerate(webvtt.read(str(path))):
+    """Parse YouTube auto-caption WebVTT, collapsing the rolling-cue format.
+
+    Auto-captions emit each line twice: once as a 10ms transition (e.g.
+    5.110 -> 5.120) and once as the "real" cue that overlaps with the next
+    line. We keep only cues with non-trivial duration, and from multi-line
+    cues we take only the LAST line (the new content being appended).
+    """
+    seq = 0
+    prev_text: str | None = None
+    for cue in webvtt.read(str(path)):
+        start_ms = int(cue.start_in_seconds * 1000)
+        end_ms = int(cue.end_in_seconds * 1000)
+        # Skip the rolling transition cues — they have ~10ms durations.
+        if end_ms - start_ms < 200:
+            continue
+        lines = [line.strip() for line in cue.text.splitlines() if line.strip()]
+        if not lines:
+            continue
+        text = lines[-1]
+        # Dedupe consecutive identical lines from caption stickiness.
+        if text == prev_text:
+            continue
+        prev_text = text
         yield TranscriptSegment(
             video_id=video_id,
-            seq=i,
-            start_ms=int(cue.start_in_seconds * 1000),
-            end_ms=int(cue.end_in_seconds * 1000),
-            text=cue.text.replace("\n", " ").strip(),
+            seq=seq,
+            start_ms=start_ms,
+            end_ms=end_ms,
+            text=text,
             source="youtube-captions",
         )
+        seq += 1

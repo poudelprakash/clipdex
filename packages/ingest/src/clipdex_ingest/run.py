@@ -21,18 +21,28 @@ async def ingest_once(enable_fallback: bool | None = None) -> dict[str, int]:
 
     playlist_id = settings.uploads_playlist_id
     if not playlist_id:
-        if not settings.youtube_channel_id:
-            raise RuntimeError("Set UPLOADS_PLAYLIST_ID or YOUTUBE_CHANNEL_ID in .env.")
-        playlist_id = await resolve_uploads_playlist(settings.youtube_channel_id)
+        if not (settings.youtube_channel_id or settings.youtube_channel_handle):
+            raise RuntimeError(
+                "Set UPLOADS_PLAYLIST_ID, YOUTUBE_CHANNEL_ID, or YOUTUBE_CHANNEL_HANDLE in .env."
+            )
+        playlist_id = await resolve_uploads_playlist(
+            channel_id=settings.youtube_channel_id,
+            handle=settings.youtube_channel_handle,
+        )
         log.info("resolved uploads playlist: %s", playlist_id)
 
-    engine = create_async_engine(settings.database_url)
+    db_url = settings.database_url
+    if db_url.startswith("postgresql://"):
+        db_url = "postgresql+psycopg://" + db_url[len("postgresql://") :]
+    engine = create_async_engine(db_url)
     stats = {"ok": 0, "skipped": 0, "failed": 0}
 
     async with AsyncSession(engine) as session:
         since = await latest_published(session)
         uploads = await list_uploads(playlist_id, since=since)
-        log.info("ingest: %d new uploads since %s", len(uploads), since)
+        if settings.max_videos_per_run > 0:
+            uploads = uploads[: settings.max_videos_per_run]
+        log.info("ingest: %d uploads to process (since %s)", len(uploads), since)
 
         for v in uploads:
             vid = v["video_id"]
@@ -67,6 +77,7 @@ async def ingest_once(enable_fallback: bool | None = None) -> dict[str, int]:
                 break
             except Exception as e:  # noqa: BLE001 — we want broad capture per video
                 log.exception("ingest: %s failed", vid)
+                await session.rollback()
                 await mark_failed(session, vid, str(e))
                 stats["failed"] += 1
 

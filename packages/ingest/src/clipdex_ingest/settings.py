@@ -18,6 +18,12 @@ class Settings(BaseSettings):
 
     cache_dir: str = Field(default=".cache")
     whisper_model: str = Field(default="base")
+    max_videos_per_run: int = Field(default=0)  # 0 = unbounded
+
+    # YouTube increasingly requires a signed-in session to serve metadata.
+    # Set to "chrome" / "safari" / "firefox" to pull cookies from your local
+    # browser via yt-dlp. Empty disables.
+    ytdlp_cookies_from_browser: str = Field(default="")
 
 
 settings = Settings()

@@ -283,12 +283,12 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "webvtt-py" },
+    { name = "yt-dlp" },
 ]
 
 [package.optional-dependencies]
 fallback = [
     { name = "openai-whisper" },
-    { name = "yt-dlp" },
 ]
 
 [package.metadata]
@@ -300,7 +300,7 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.5" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0" },
     { name = "webvtt-py", specifier = ">=0.5" },
-    { name = "yt-dlp", marker = "extra == 'fallback'", specifier = ">=2024.10" },
+    { name = "yt-dlp", specifier = ">=2024.10" },
 ]
 provides-extras = ["fallback"]
 

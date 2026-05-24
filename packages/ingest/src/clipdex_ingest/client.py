@@ -21,17 +21,26 @@ def _raise_for_quota(resp: httpx.Response) -> None:
     resp.raise_for_status()
 
 
-async def resolve_uploads_playlist(channel_id: str) -> str:
-    """Return the channel's UU... uploads playlist id."""
+async def resolve_uploads_playlist(*, channel_id: str = "", handle: str = "") -> str:
+    """Return the channel's UU... uploads playlist id.
+
+    Pass `channel_id` (UC...) or `handle` (@something / something). Handle wins
+    if both are set, since it's typically the more user-facing identifier.
+    """
+    params: dict[str, str] = {"part": "contentDetails,snippet", "key": settings.youtube_api_key}
+    if handle:
+        params["forHandle"] = handle.lstrip("@")
+    elif channel_id:
+        params["id"] = channel_id
+    else:
+        raise RuntimeError("resolve_uploads_playlist: pass channel_id or handle")
+
     async with httpx.AsyncClient(timeout=15) as http:
-        r = await http.get(
-            f"{YT}/channels",
-            params={"part": "contentDetails", "id": channel_id, "key": settings.youtube_api_key},
-        )
+        r = await http.get(f"{YT}/channels", params=params)
         _raise_for_quota(r)
         items = r.json().get("items", [])
         if not items:
-            raise RuntimeError(f"channel not found: {channel_id}")
+            raise RuntimeError(f"channel not found: handle={handle!r} id={channel_id!r}")
         return items[0]["contentDetails"]["relatedPlaylists"]["uploads"]
 
 

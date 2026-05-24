@@ -7,7 +7,9 @@ from clipdex_schema import TranscriptSegment
 
 
 async def latest_published(session: AsyncSession) -> datetime | None:
-    r = await session.execute(text("SELECT MAX(published_at) FROM processed_videos"))
+    r = await session.execute(
+        text("SELECT MAX(published_at) FROM processed_videos WHERE status = 'done'")
+    )
     return r.scalar()
 
 
@@ -29,8 +31,11 @@ async def save_video(
     segments: list[TranscriptSegment],
     source: str,
 ) -> None:
-    """Replace any prior data for `video_id` and mark it done — all in one transaction."""
-    async with session.begin():
+    """Replace any prior data for `video_id` and mark it done.
+
+    Caller manages the transaction — we commit at the end, and rollback on error.
+    """
+    try:
         await session.execute(
             text(
                 """
@@ -70,10 +75,14 @@ async def save_video(
                 ),
                 [s.model_dump() for s in segments],
             )
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
 
 
 async def mark_failed(session: AsyncSession, video_id: str, error: str) -> None:
-    async with session.begin():
+    try:
         await session.execute(
             text(
                 """
@@ -86,3 +95,7 @@ async def mark_failed(session: AsyncSession, video_id: str, error: str) -> None:
             ),
             {"vid": video_id, "err": error[:1000]},
         )
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise

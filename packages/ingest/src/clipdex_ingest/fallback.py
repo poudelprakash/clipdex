@@ -23,12 +23,14 @@ def transcribe_with_whisper(video_id: str) -> list[TranscriptSegment]:
     audio_dir.mkdir(parents=True, exist_ok=True)
     audio_path = audio_dir / f"{video_id}.m4a"
 
-    ydl_opts = {
+    ydl_opts: dict = {
         "format": "bestaudio[ext=m4a]/bestaudio",
         "outtmpl": str(audio_path.with_suffix(".%(ext)s")),
         "quiet": True,
         "no_warnings": True,
     }
+    if settings.ytdlp_cookies_from_browser:
+        ydl_opts["cookiesfrombrowser"] = (settings.ytdlp_cookies_from_browser,)
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([f"https://www.youtube.com/watch?v={video_id}"])
 
